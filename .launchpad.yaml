@@ -5,6 +5,6 @@ config:
   env:
     NODE_ENV: production
   secrets:
-    - GEMINI_API_KEY
-    - DATAWRAPPER_API_KEY
+    GEMINI_API_KEY:
+    DATAWRAPPER_API_KEY:
   start: npm start
