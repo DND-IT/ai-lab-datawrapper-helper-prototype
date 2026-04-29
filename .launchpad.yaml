@@ -7,3 +7,4 @@ config:
   secrets:
     - GEMINI_API_KEY
     - DATAWRAPPER_API_KEY
+  start: npm start
