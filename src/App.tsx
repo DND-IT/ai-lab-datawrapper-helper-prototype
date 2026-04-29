@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { 
-  BarChart3, Upload, Loader2, ArrowRight, X, FileText, 
-  Image as ImageIcon, Link2, CheckCircle2, XCircle, 
-  ExternalLink, PanelLeftClose, PanelLeftOpen, Search, 
-  Bell, Globe, ChevronDown, User, Star, Info, House, 
-  Bot, FileSearch, Lightbulb, BotMessageSquare, Database, 
-  BookOpen, CodeXml, Rocket, Share2, CirclePlay, GraduationCap,
+import {
+  BarChart3, Upload, Loader2, ArrowRight, X, FileText,
+  Image as ImageIcon, Link2, CheckCircle2, XCircle,
+  ExternalLink, PanelLeftOpen,
+  Globe, ChevronDown, User, Star, Info,
+  CodeXml, Rocket, Share2, CirclePlay, GraduationCap,
   RefreshCcw, Save, Trash2, Filter, MessageSquare, Send,
   Map, MapPin, PieChart, Table, LineChart, Target, GripHorizontal,
   BarChartHorizontal, Columns
@@ -41,7 +40,6 @@ const TRANSLATIONS = {
   fr: {
     name: "Infographic Buddy",
     description: "Transforme n'importe quel jpg, pdf, données en un graphique Datawrapper.",
-    searchPlaceholder: "Rechercher outil",
     language: "Français",
     generate: "Générer",
     reset: "Réinitialiser",
@@ -83,7 +81,6 @@ const TRANSLATIONS = {
   de: {
     name: "Infographic Buddy",
     description: "Verwandelt JPGs, PDFs, Daten in eine Datawrapper-Grafik.",
-    searchPlaceholder: "Tool suchen",
     language: "Deutsch",
     generate: "Generieren",
     reset: "Zurücksetzen",
@@ -173,7 +170,6 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ publicUrl: string; iframeCode: string; chartId: string; publishError?: string; csvData?: string; title?: string; chartType?: string } | null>(null);
   const [error, setError] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isChartMenuOpen, setIsChartMenuOpen] = useState(false);
@@ -561,53 +557,12 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-secondary font-sans text-gray-900 overflow-hidden">
       
-      {/* --- Left Sidebar (Mockup) --- */}
-      <aside className={`flex h-full flex-col bg-white border-r border-gray-200 transition-all duration-300 ${isSidebarOpen ? 'w-[300px]' : 'w-0 overflow-hidden'}`}>
-        <div className="bg-[#FF003F] px-6 py-4 flex items-center gap-3 text-white border-b border-white/10">
-          <div className="w-8 h-8 flex items-center justify-center overflow-hidden bg-white/10 rounded-md">
-            <img 
-              src="https://www.tamedia.ch/favicon.ico" 
-              alt="Tamedia T" 
-              className="w-6 h-6 object-contain brightness-0 invert"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <span className="text-2xl font-light tracking-tight">Toolbox</span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto px-4 py-8 bg-[#FF003F]">
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder={t.searchPlaceholder} 
-              className="w-full bg-white/10 border border-white/20 rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/20"
-            />
-          </div>
-
-          <nav className="space-y-1">
-            <NavItem icon={<House />} label="Home" />
-            <NavItem icon={<Star />} label="My Favorites" />
-            <NavItem icon={<Bot />} label="TamediaGPT" />
-            <NavItem icon={<BarChart3 />} label={t.name} active />
-            <NavItem icon={<FileSearch />} label="Research" expandable />
-            <NavItem icon={<Lightbulb />} label="Content Creation" expandable />
-            <NavItem icon={<BotMessageSquare />} label="Chatbots" expandable />
-            <NavItem icon={<Database />} label="Data & Insights" expandable />
-            <NavItem icon={<BookOpen />} label="Editorial Manuals" />
-          </nav>
-        </div>
-      </aside>
-
       {/* --- Main Area --- */}
       <main className="flex-1 flex flex-col h-full bg-secondary">
         
         {/* Header */}
         <header className="flex items-center justify-between px-12 py-3 bg-secondary border-b border-gray-200 sticky top-0 z-50">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-              {isSidebarOpen ? <PanelLeftClose className="w-6 h-6" /> : <PanelLeftOpen className="w-6 h-6" />}
-            </button>
           </div>
 
           <div className="flex items-center gap-6">
@@ -1102,18 +1057,6 @@ export default function App() {
   );
 }
 
-function NavItem({ icon, label, active = false, expandable = false }: { icon: React.ReactNode, label: string, active?: boolean, expandable?: boolean }) {
-  return (
-    <div className={`
-      flex items-center gap-4 px-2 py-3 rounded-lg cursor-pointer transition-all
-      ${active ? 'bg-white/20 text-white font-medium' : 'text-white/80 hover:bg-white/10'}
-    `}>
-      <span className="w-6 h-6 shrink-0">{icon}</span>
-      <span className="flex-1 font-light text-lg">{label}</span>
-      {expandable && <ChevronDown className="w-4 h-4 opacity-40 text-white" />}
-    </div>
-  );
-}
 
 function StatusItem({ label, active }: { label: string, active: boolean }) {
   return (
