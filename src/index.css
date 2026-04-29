@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@200;300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-tamedia-red-brand: #D3343F;
+  --color-tamedia-red-brand-dark: #A11B24;
+  --color-tamedia-gray-100: #F4F4F4;
+  --color-tamedia-gray-200: #E9E9E9;
+  --color-tamedia-gray-900: #121212;
+  
+  --color-secondary: #F8F7F4;
+}
+
+@layer base {
+  body {
+    @apply bg-secondary text-tamedia-gray-900;
+  }
+}
