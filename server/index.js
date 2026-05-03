@@ -66,8 +66,16 @@ async function startServer() {
 
   app.post("/api/create-dw-chart", async (req, res) => {
     try {
-      const { title, chartType, csvData, intro, source, byline, language } =
-        req.body;
+      const {
+        title,
+        chartType,
+        csvData,
+        intro,
+        source,
+        byline,
+        language,
+        chartId: existingChartId,
+      } = req.body;
 
       if (!title || !chartType || !csvData) {
         return res
@@ -75,43 +83,51 @@ async function startServer() {
           .json({ error: "Missing title, chartType, or csvData" });
       }
 
-      // 1. Create Chart
-      console.log("Creating Datawrapper chart...");
-      const dwCreateRes = await fetch("https://api.datawrapper.de/v3/charts", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${DATAWRAPPER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          type: chartType,
-          theme: "tamedia-ohne-linien",
-          language: language || "fr-FR",
-          metadata: {
-            describe: {
-              intro: intro || "",
-              "source-name": source || "",
-              byline: byline || "",
-            },
-            visualize: {
-              "base-color": "#378EBD",
-            },
+      let chartId;
+
+      if (existingChartId) {
+        // Update existing chart instead of creating a new one
+        console.log(`Updating existing Datawrapper chart ${existingChartId}...`);
+        chartId = existingChartId;
+      } else {
+        // 1. Create Chart
+        console.log("Creating Datawrapper chart...");
+        const dwCreateRes = await fetch("https://api.datawrapper.de/v3/charts", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${DATAWRAPPER_API_KEY}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            title,
+            type: chartType,
+            theme: "tamedia-ohne-linien",
+            language: language || "fr-FR",
+            metadata: {
+              describe: {
+                intro: intro || "",
+                "source-name": source || "",
+                byline: byline || "",
+              },
+              visualize: {
+                "base-color": "#378EBD",
+              },
+            },
+          }),
+        });
 
-      if (!dwCreateRes.ok) {
-        if (dwCreateRes.status === 401) {
-          throw new Error("Invalid Datawrapper API key");
+        if (!dwCreateRes.ok) {
+          if (dwCreateRes.status === 401) {
+            throw new Error("Invalid Datawrapper API key");
+          }
+          throw new Error(
+            `Datawrapper create failed: ${await dwCreateRes.text()}`
+          );
         }
-        throw new Error(
-          `Datawrapper create failed: ${await dwCreateRes.text()}`
-        );
-      }
 
-      const dwCreateData = await dwCreateRes.json();
-      const chartId = dwCreateData.id;
+        const dwCreateData = await dwCreateRes.json();
+        chartId = dwCreateData.id;
+      }
 
       // 2. Patch Chart Metadata
       console.log("Patching chart metadata...");
@@ -200,6 +216,8 @@ async function startServer() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            title,
+            type: chartType,
             language: language || "fr-FR",
             metadata: patchMetadata,
           }),
@@ -235,7 +253,7 @@ async function startServer() {
 
       // 4. Publish Chart
       console.log("Publishing Datawrapper chart...");
-      await fetch(
+      const dwPublishRes = await fetch(
         `https://api.datawrapper.de/v3/charts/${chartId}/publish`,
         {
           method: "POST",
@@ -245,7 +263,21 @@ async function startServer() {
         }
       );
 
-      const publicUrl = `https://datawrapper.dwcdn.net/${chartId}/1/`;
+      let publicVersion = 1;
+      try {
+        if (dwPublishRes.ok) {
+          const publishData = await dwPublishRes.json();
+          publicVersion =
+            publishData?.data?.publicVersion ||
+            publishData?.publicVersion ||
+            publishData?.data?.publicId ||
+            1;
+        }
+      } catch (e) {
+        // fall through with default version
+      }
+
+      const publicUrl = `https://datawrapper.dwcdn.net/${chartId}/${publicVersion}/`;
 
       return res.json({
         success: true,

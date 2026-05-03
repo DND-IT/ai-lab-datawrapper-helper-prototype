@@ -509,7 +509,10 @@ export default function App() {
       // If we reach here, no ambiguity.
       setAmbiguity(null);
 
-      // Send to backend
+      // Send to backend. On iteration, reuse the existing Datawrapper chart
+      // so the same embed/URL keeps getting updated instead of generating
+      // a new chart for every change.
+      const reuseChartId = isIteration && result?.chartId ? result.chartId : undefined;
       const res = await fetch('/api/create-dw-chart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -520,7 +523,8 @@ export default function App() {
           intro: generated.intro,
           source: generated.source,
           byline: authorByline,
-          language: generated.language
+          language: generated.language,
+          chartId: reuseChartId,
         })
       });
 
