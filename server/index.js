@@ -10,6 +10,11 @@ const __dirname = path.dirname(__filename);
 
 const DATAWRAPPER_API_KEY = process.env.DATAWRAPPER_API_KEY || "";
 
+const SYSTEM_PRESETS = {
+  tamedia: { theme: "tagesanzeiger", folderId: 407746, organizationId: "tagesanzeiger" },
+  fuw: { theme: "fuw", folderId: 407748, organizationId: "fuw" },
+};
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
@@ -75,6 +80,7 @@ async function startServer() {
         byline,
         language,
         chartId: existingChartId,
+        system,
       } = req.body;
 
       if (!title || !chartType || !csvData) {
@@ -83,54 +89,63 @@ async function startServer() {
           .json({ error: "Missing title, chartType, or csvData" });
       }
 
+      const preset = SYSTEM_PRESETS[system] || SYSTEM_PRESETS.tamedia;
+      console.log(`\n--- DW: system=${system || "tamedia (default)"} -> theme=${preset.theme}${preset.folderId ? `, folderId=${preset.folderId}` : ""}${preset.organizationId ? `, organizationId=${preset.organizationId}` : ""} ---`);
+
       let chartId;
 
       if (existingChartId) {
         // Update existing chart instead of creating a new one
-        console.log(`Updating existing Datawrapper chart ${existingChartId}...`);
+        console.log(`\n--- DW: Reusing existing chart ${existingChartId} ---`);
         chartId = existingChartId;
       } else {
         // 1. Create Chart
-        console.log("Creating Datawrapper chart...");
+        const createBody = {
+          title,
+          type: chartType,
+          theme: preset.theme,
+          language: language || "fr-FR",
+          metadata: {
+            describe: {
+              intro: intro || "",
+              "source-name": source || "",
+              byline: byline || "",
+            },
+            visualize: {
+              "base-color": "#378EBD",
+            },
+          },
+        };
+        if (preset.organizationId) createBody.organizationId = preset.organizationId;
+        if (preset.folderId) createBody.folderId = preset.folderId;
+        console.log("\n--- DW: CREATE chart ---");
+        console.log("  POST https://api.datawrapper.de/v3/charts");
+        console.log("  Body:", JSON.stringify(createBody, null, 2));
+
         const dwCreateRes = await fetch("https://api.datawrapper.de/v3/charts", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${DATAWRAPPER_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            title,
-            type: chartType,
-            theme: "tamedia-ohne-linien",
-            language: language || "fr-FR",
-            metadata: {
-              describe: {
-                intro: intro || "",
-                "source-name": source || "",
-                byline: byline || "",
-              },
-              visualize: {
-                "base-color": "#378EBD",
-              },
-            },
-          }),
+          body: JSON.stringify(createBody),
         });
 
         if (!dwCreateRes.ok) {
+          const errText = await dwCreateRes.text();
+          console.log("  Response:", dwCreateRes.status, errText);
           if (dwCreateRes.status === 401) {
             throw new Error("Invalid Datawrapper API key");
           }
-          throw new Error(
-            `Datawrapper create failed: ${await dwCreateRes.text()}`
-          );
+          throw new Error(`Datawrapper create failed: ${errText}`);
         }
 
         const dwCreateData = await dwCreateRes.json();
         chartId = dwCreateData.id;
+        console.log("  Response:", dwCreateRes.status, "-> chartId:", chartId);
       }
 
       // 2. Patch Chart Metadata
-      console.log("Patching chart metadata...");
       const patchMetadata = {
         describe: {
           intro: intro || "",
@@ -207,6 +222,16 @@ async function startServer() {
         }
       }
 
+      const patchBody = {
+        title,
+        type: chartType,
+        language: language || "fr-FR",
+        metadata: patchMetadata,
+      };
+      console.log("\n--- DW: PATCH chart metadata ---");
+      console.log(`  PATCH https://api.datawrapper.de/v3/charts/${chartId}`);
+      console.log("  Body:", JSON.stringify(patchBody, null, 2));
+
       const dwPatchRes = await fetch(
         `https://api.datawrapper.de/v3/charts/${chartId}`,
         {
@@ -215,23 +240,26 @@ async function startServer() {
             Authorization: `Bearer ${DATAWRAPPER_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            title,
-            type: chartType,
-            language: language || "fr-FR",
-            metadata: patchMetadata,
-          }),
+          body: JSON.stringify(patchBody),
         }
       );
 
       if (!dwPatchRes.ok) {
-        console.warn(`Datawrapper patch failed: ${await dwPatchRes.text()}`);
+        const patchErr = await dwPatchRes.text();
+        console.log("  Response:", dwPatchRes.status, patchErr);
+      } else {
+        console.log("  Response:", dwPatchRes.status, "OK");
       }
 
       // 3. Upload Data
-      console.log("Uploading data to Datawrapper...");
       const contentType =
         chartType === "locator-map" ? "application/json" : "text/csv";
+
+      console.log("\n--- DW: UPLOAD data ---");
+      console.log(`  PUT https://api.datawrapper.de/v3/charts/${chartId}/data`);
+      console.log(`  Content-Type: ${contentType}`);
+      console.log(`  Data (${csvData.length} chars):`);
+      console.log("  " + csvData.substring(0, 500) + (csvData.length > 500 ? "\n  ... (truncated)" : ""));
 
       const dwDataRes = await fetch(
         `https://api.datawrapper.de/v3/charts/${chartId}/data`,
@@ -246,13 +274,16 @@ async function startServer() {
       );
 
       if (!dwDataRes.ok) {
-        throw new Error(
-          `Datawrapper data upload failed: ${await dwDataRes.text()}`
-        );
+        const dataErr = await dwDataRes.text();
+        console.log("  Response:", dwDataRes.status, dataErr);
+        throw new Error(`Datawrapper data upload failed: ${dataErr}`);
       }
+      console.log("  Response:", dwDataRes.status, "OK");
 
       // 4. Publish Chart
-      console.log("Publishing Datawrapper chart...");
+      console.log("\n--- DW: PUBLISH chart ---");
+      console.log(`  POST https://api.datawrapper.de/v3/charts/${chartId}/publish`);
+
       const dwPublishRes = await fetch(
         `https://api.datawrapper.de/v3/charts/${chartId}/publish`,
         {
@@ -267,24 +298,32 @@ async function startServer() {
       try {
         if (dwPublishRes.ok) {
           const publishData = await dwPublishRes.json();
+          console.log("  Response:", dwPublishRes.status, JSON.stringify(publishData, null, 2));
           publicVersion =
             publishData?.data?.publicVersion ||
             publishData?.publicVersion ||
             publishData?.data?.publicId ||
             1;
+        } else {
+          console.log("  Response:", dwPublishRes.status, await dwPublishRes.text());
         }
       } catch (e) {
-        // fall through with default version
+        console.log("  Response: could not parse publish response");
       }
 
       const publicUrl = `https://datawrapper.dwcdn.net/${chartId}/${publicVersion}/`;
 
-      return res.json({
+      const result = {
         success: true,
         chartId,
         publicUrl,
         iframeCode: `<iframe title="${title}" aria-label="Chart" id="datawrapper-chart-${chartId}" src="${publicUrl}" scrolling="no" frameborder="0" style="width: 0; min-width: 100% !important; border: none;" height="400" data-external="1"></iframe>`,
-      });
+      };
+      console.log("\n--- DW: DONE ---");
+      console.log(`  Chart ID: ${chartId}`);
+      console.log(`  Public URL: ${publicUrl}`);
+
+      return res.json(result);
     } catch (error) {
       console.error(error);
       res

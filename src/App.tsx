@@ -35,6 +35,12 @@ interface Proposal {
 }
 
 type Locale = 'fr' | 'de';
+type System = 'tamedia' | 'fuw';
+
+const SYSTEM_CONFIG: Record<System, { label: string; primary: string; primaryDark: string; badgeBg: string }> = {
+  tamedia: { label: 'Tamedia', primary: '#D3343F', primaryDark: '#A11B24', badgeBg: '#FBE9EB' },
+  fuw:     { label: 'FuW',     primary: '#0E4F7B', primaryDark: '#072B43', badgeBg: '#E2EBF2' },
+};
 
 const TRANSLATIONS = {
   fr: {
@@ -164,6 +170,11 @@ const CHART_TYPES_INFO = [
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>('de');
+  const [system, setSystem] = useState<System>(() => {
+    if (typeof window === 'undefined') return 'tamedia';
+    const saved = window.localStorage.getItem('system');
+    return saved === 'fuw' ? 'fuw' : 'tamedia';
+  });
   const [text, setText] = useState('');
   const [authorByline, setAuthorByline] = useState('');
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -186,6 +197,14 @@ export default function App() {
   const langMenuRef = useRef<HTMLDivElement>(null);
 
   const t = TRANSLATIONS[locale];
+  const systemCfg = SYSTEM_CONFIG[system];
+
+  useEffect(() => {
+    window.localStorage.setItem('system', system);
+    const root = document.documentElement;
+    root.style.setProperty('--color-brand-primary', systemCfg.primary);
+    root.style.setProperty('--color-brand-primary-dark', systemCfg.primaryDark);
+  }, [system, systemCfg.primary, systemCfg.primaryDark]);
 
   const processFiles = async (fileList: File[]) => {
     const processedFiles = await Promise.all(fileList.map(async (file: File) => {
@@ -525,6 +544,7 @@ export default function App() {
           byline: authorByline,
           language: generated.language,
           chartId: reuseChartId,
+          system,
         })
       });
 
@@ -570,6 +590,30 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-6">
+            {/* System Toggle */}
+            <div
+              role="radiogroup"
+              aria-label="System"
+              className="flex items-center bg-gray-100 rounded-md p-0.5 text-sm"
+            >
+              {(['tamedia', 'fuw'] as System[]).map((s) => {
+                const active = system === s;
+                return (
+                  <button
+                    key={s}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setSystem(s)}
+                    className={`px-3 py-1 rounded-[5px] font-medium transition-colors ${
+                      active ? 'bg-white shadow-sm text-brand-primary' : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    {SYSTEM_CONFIG[s].label}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Language Switcher */}
             <div className="relative" ref={langMenuRef}>
               <button 
@@ -591,13 +635,13 @@ export default function App() {
                   >
                     <button 
                       onClick={() => { setLocale('fr'); setIsLangMenuOpen(false); }} 
-                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between transition-colors ${locale === 'fr' ? 'text-[#D3343F] font-medium bg-gray-50/50' : 'text-gray-700'}`}
+                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between transition-colors ${locale === 'fr' ? 'text-brand-primary font-medium bg-gray-50/50' : 'text-gray-700'}`}
                     >
                       Français {locale === 'fr' && <CheckCircle2 className="w-4 h-4" />}
                     </button>
                     <button 
                       onClick={() => { setLocale('de'); setIsLangMenuOpen(false); }} 
-                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between transition-colors ${locale === 'de' ? 'text-[#D3343F] font-medium bg-gray-50/50' : 'text-gray-700'}`}
+                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between transition-colors ${locale === 'de' ? 'text-brand-primary font-medium bg-gray-50/50' : 'text-gray-700'}`}
                     >
                       Deutsch {locale === 'de' && <CheckCircle2 className="w-4 h-4" />}
                     </button>
@@ -620,7 +664,15 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div className="space-y-2">
                 <div className="flex items-start gap-4">
-                  <h1 className="text-3xl font-semibold text-[#D3343F]">{t.name}</h1>
+                  <h1 className="text-3xl font-semibold text-brand-primary">{t.name}</h1>
+                  <span
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full text-brand-primary border border-brand-primary"
+                    style={{ backgroundColor: systemCfg.badgeBg }}
+                    title={`Active system: ${systemCfg.label}`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-primary" />
+                    {systemCfg.label}
+                  </span>
                   <div className="-rotate-[10deg] bg-yellow-400 text-black font-bold text-[10px] uppercase px-3 py-1 shadow-sm mt-2 ml-1 origin-center">
                     BETA
                   </div>
@@ -726,7 +778,7 @@ export default function App() {
                   <button 
                     onClick={() => generateChart(false, selectedChartType || undefined)}
                     disabled={isLoading || (!text.trim() && files.length === 0)}
-                    className="bg-linear-to-r from-[#D3343F] to-[#A11B24] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-normal hover:brightness-110 disabled:opacity-50 transition-all shadow-sm"
+                    className="bg-linear-to-r from-brand-primary to-brand-primary-dark text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-normal hover:brightness-110 disabled:opacity-50 transition-all shadow-sm"
                   >
                     {isLoading && !isIterating ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
                     {isLoading && !isIterating ? t.generating : t.generate}
@@ -766,7 +818,7 @@ export default function App() {
 
                   <button 
                     onClick={() => { setText(''); setFiles([]); setResult(null); setError(''); setAmbiguity(null); setSelectedChartType(''); }}
-                    className="text-[#D3343F] hover:text-[#A11B24] underline underline-offset-4 transition-colors text-sm ml-2"
+                    className="text-brand-primary hover:text-brand-primary-dark underline underline-offset-4 transition-colors text-sm ml-2"
                   >
                     {t.reset}
                   </button>
@@ -1030,14 +1082,14 @@ export default function App() {
       <aside className={`h-full bg-white border-l border-gray-200 transition-all duration-300 ${isRightSidebarOpen ? 'w-[350px]' : 'w-0 overflow-hidden'}`}>
         <div className="p-5 h-full flex flex-col gap-5 overflow-y-auto">
           
-          <div className="rounded-xl border-l-[6px] border-[#D3343F] bg-white border p-5 shadow-xs">
+          <div className="rounded-xl border-l-[6px] border-brand-primary bg-white border p-5 shadow-xs">
             <h3 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
-              <Info className="w-5 h-5 text-[#D3343F]" />
+              <Info className="w-5 h-5 text-brand-primary" />
               {t.quickGuide}
             </h3>
             <div className="space-y-3 text-sm text-gray-700 leading-relaxed">
               <p>{t.quickGuideText}</p>
-              <div className="bg-red-50 p-3 rounded-lg border-l-2 border-red-500 italic text-[#D3343F]">
+              <div className="bg-gray-50 p-3 rounded-lg border-l-2 border-brand-primary italic text-brand-primary">
                 {t.quickGuideTip}
               </div>
             </div>
